@@ -4,3 +4,4 @@ mnt/
 *.db
 *~
 hello
+log.txt
