@@ -8,7 +8,12 @@ run: hello db
 	./hello -d mnt/
 
 clean:
-	rm -rf *.o hello pictures.db .pictures/* log.txt
+	rm -f *.o
+	rm -f hello
+	rm -f log.txt
+	rm -f pictures.db
+	rm -rf .pictures
+	rm -rf mnt
 
 db:
 	./build_db.sh

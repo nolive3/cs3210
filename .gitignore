@@ -1,0 +1,5 @@
+mnt/
+.pictures/
+*.o
+*.db
+hello
