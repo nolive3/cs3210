@@ -1,0 +1,1 @@
+int last_index_of(const char* path, char c);
