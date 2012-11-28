@@ -99,14 +99,14 @@ void dir_dates_year_month(const char *path, void *buf, fuse_fill_dir_t filler, s
 	sqlite3_bind_int(stmt, 1, year);
 	sqlite3_bind_int(stmt, 2, month);
 	do {
-		char* txt;
+		const char* txt;
 		rc = sqlite3_step(stmt);
 		switch( rc ){
 			case SQLITE_DONE:
 				break;
 			case SQLITE_ROW:
 				// print results for this row
-				txt = sqlite3_column_text(stmt,0);
+				txt = (const char *) sqlite3_column_text(stmt,0);
 				filler(buf, txt ? txt : "NULL", NULL, 0);
 				break;
 			default:
