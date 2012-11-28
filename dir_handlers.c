@@ -42,6 +42,83 @@ void dir_dates(const char *path, void *buf, fuse_fill_dir_t filler, sqlite3* con
 	sqlite3_finalize(stmt);
 }
 
+void dir_dates_year(const char *path, void *buf, fuse_fill_dir_t filler, sqlite3* conn)
+{
+	sqlite3_stmt *stmt;
+	int rc;
+	int year;
+	char* path_tok = malloc(strlen(path) + 1);
+	char* tok;
+	strcpy(path_tok, path);
+
+	strtok(path_tok, "/");
+	tok = strtok(NULL, "/");
+	year = atoi(tok);
+	free(path_tok);
+
+	sqlite3_prepare_v2(conn, "SELECT DISTINCT month FROM pictures where year=?", -1, &stmt, NULL);
+	sqlite3_bind_int(stmt, 1, year);
+	do {
+		int month;
+		rc = sqlite3_step(stmt);
+		switch( rc ){
+			case SQLITE_DONE:
+				break;
+			case SQLITE_ROW:
+				// print results for this row
+				month = sqlite3_column_int(stmt,0);
+				filler(buf, itom(month), NULL, 0);
+				break;
+			default:
+				fprintf(stderr, "Error: %d : %s\n",  rc, sqlite3_errmsg(conn));
+				break;
+		}
+	} while (rc == SQLITE_ROW);
+	sqlite3_finalize(stmt);
+}
+
+void dir_dates_year_month(const char *path, void *buf, fuse_fill_dir_t filler, sqlite3* conn)
+{
+	sqlite3_stmt *stmt;
+	int rc;
+	int year;
+	int month;
+	char* path_tok = malloc(strlen(path) + 1);
+	char* tok;
+
+	strcpy(path_tok, path);
+
+	strtok(path_tok, "/");
+	tok = strtok(NULL, "/");
+	year = atoi(tok);
+	tok = strtok(NULL, "/");
+	month = mtoi(tok);
+	free(path_tok);
+
+	sqlite3_prepare_v2(conn, "SELECT filename FROM pictures WHERE year=? AND month=?", -1, &stmt, NULL);
+	sqlite3_bind_int(stmt, 1, year);
+	sqlite3_bind_int(stmt, 2, month);
+	do {
+		char* txt;
+		rc = sqlite3_step(stmt);
+		switch( rc ){
+			case SQLITE_DONE:
+				break;
+			case SQLITE_ROW:
+				// print results for this row
+				txt = sqlite3_column_text(stmt,0);
+				filler(buf, txt ? txt : "NULL", NULL, 0);
+				break;
+			default:
+				fprintf(stderr, "Error: %d : %s\n",  rc, sqlite3_errmsg(conn));
+				break;
+		}
+	} while (rc == SQLITE_ROW);
+	sqlite3_finalize(stmt);
+
+
+}
+
 void dir_all(const char *path, void *buf, fuse_fill_dir_t filler, sqlite3* conn)
 {
 	sqlite3_stmt *stmt;
@@ -74,7 +151,7 @@ void dir_formats(const char *path, void *buf, fuse_fill_dir_t filler, sqlite3* c
 	filler(buf, "bmp", NULL, 0);
 }
 
-void dir_format(const char *path, void *buf, fuse_fill_dir_t filler, const char* file_ext, sqlite3* conn)
+void dir_formats_ext(const char *path, void *buf, fuse_fill_dir_t filler, const char* file_ext, sqlite3* conn)
 {	
 	sqlite3_stmt *stmt;
 	int rc;

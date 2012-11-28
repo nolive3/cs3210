@@ -21,10 +21,12 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <regex.h>
 
 #include <sqlite3.h>
 #include <libexif/exif-data.h>
 
+#include "hello.h"
 #include "dir_handlers.h"
 #include "utils.h"
 
@@ -35,24 +37,26 @@ static int hello_getattr(const char *path, struct stat *stbuf)
 	char* full_path;
 	int ret_code = 0;
 	struct stat real_stat;
+	FILE* f;
 
 	asprintf(&full_path, ".pictures/%s", path + last_index_of(path, '/'));
+	f = fopen("log.txt", "a");
+	fprintf(f, "path: [%s] real path: [%s]\n", path, full_path);
+	fclose(f);
 
 	memset(stbuf, 0, sizeof(struct stat));
 	if (strcmp(path, "/") == 0) {
 		stbuf->st_mode = S_IFDIR | 0755;
 		stbuf->st_nlink = 2;
-	} else if ( strcmp(path, "/All") == 0 || strcmp(path, "/Formats") == 0 ||
-				strcmp(path, "/Formats/jpg") == 0 || strcmp(path, "/Formats/png") == 0 ||
-				strcmp(path, "/Formats/bmp") == 0 || strcmp(path, "/Dates") == 0 ||
-				strncmp(path, "/Dates/", 7) == 0) {
+	} else if ( !regexec(&all_rx, path, 0, NULL, 0) || !regexec(&formats_rx, path, 0, NULL, 0) ||
+				!regexec(&formats_ext_rx, path, 0, NULL, 0) || !regexec(&dates_rx, path, 0, NULL, 0) ||
+				!regexec(&dates_year_rx, path, 0, NULL, 0) || !regexec(&dates_year_month_rx, path, 0, NULL, 0) ) {
 		stbuf->st_mode = S_IFDIR | 0755;
 	}else if ( !stat(full_path, &real_stat) ) {
-		stbuf->st_mode = real_stat.st_mode;
-		stbuf->st_nlink = real_stat.st_nlink;
-		stbuf->st_size = real_stat.st_size;
-	} else
+		memcpy(stbuf, &real_stat, sizeof(real_stat));
+	} else {
 		ret_code = -ENOENT;
+	}
 
 	free(full_path);
 	return ret_code;
@@ -67,20 +71,24 @@ static int hello_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 	filler(buf, ".", NULL, 0);
 	filler(buf, "..", NULL, 0);
 
-	if (strcmp(path, "/") == 0) {
+	if ( !strcmp(path, "/") ) {
 		dir_root(path, buf, filler, NULL);
-	} else if (strcmp(path, "/All") == 0) {
+	} else if ( !regexec(&all_rx, path, 0, NULL, 0) ) {
 		dir_all(path, buf, filler, conn);
-	} else if( strcmp(path, "/Formats") == 0) {
+	} else if( !regexec(&formats_rx, path, 0, NULL, 0) ) {
 		dir_formats(path, buf, filler, NULL);
-	} else if (strcmp(path, "/Dates") == 0) {
+	} else if ( !regexec(&formats_ext_rx, path, 0, NULL, 0) ) {
+		dir_formats_ext(path, buf, filler, path + last_index_of(path, '/'), conn);
+	} else if ( !regexec(&dates_rx, path, 0, NULL, 0) ) {
 		dir_dates(path, buf, filler, conn);
-	} else if ( strcmp(path, "/Formats/jpg") == 0 ||
-				strcmp(path, "/Formats/png") == 0 ||
-				strcmp(path, "/Formats/bmp") == 0) {
-		dir_format(path, buf, filler, path + last_index_of(path, '/'), conn);
+	} else if ( !regexec(&dates_year_rx, path, 0, NULL, 0) ) {
+		dir_dates_year(path, buf, filler, conn);
+	} else if ( !regexec(&dates_year_month_rx, path, 0, NULL, 0) ) {
+		dir_dates_year_month(path, buf, filler, conn);
+	} else {
+		return -ENOENT;
 	}
-	
+
 	return 0;
 }
 
@@ -148,6 +156,7 @@ static int hello_write(const char *path, const char *buf, size_t size, off_t off
 	(void) fi;
 	sqlite3_stmt *stmt;
 	int year = 1969;
+	int month = 1;
 
 	asprintf(&full_path, ".pictures/%s", path + last_index_of(path, '/'));
 
@@ -170,7 +179,9 @@ static int hello_write(const char *path, const char *buf, size_t size, off_t off
 		        exif_entry_get_value(entry, buf, sizeof(buf));
 		        fprintf(f, "%s had date %s\n", full_path, buf);
 		        buf[4] = 0;
+		        buf[7] = 0;
 		        year = atoi(buf);
+		        month = atoi(buf+5);
 			} else {
 				fprintf(f,"%s had exif data, but no date\n", full_path);
 			}
@@ -180,9 +191,10 @@ static int hello_write(const char *path, const char *buf, size_t size, off_t off
 		exif_data_unref(ed);
 		fclose(f);
 
-		sqlite3_prepare_v2(conn, "insert into pictures values(?, ?)", -1, &stmt, NULL);
+		sqlite3_prepare_v2(conn, "insert into pictures values(?, ?, ?)", -1, &stmt, NULL);
 		sqlite3_bind_text(stmt, 1, path + 1, -1, SQLITE_TRANSIENT);
 		sqlite3_bind_int(stmt, 2, year);
+		sqlite3_bind_int(stmt, 3, month);
 		sqlite3_step(stmt);
 		sqlite3_finalize(stmt);
 
@@ -205,6 +217,31 @@ static int hello_mknod(const char *path, mode_t mode, dev_t rdev) {
 	return ret_code;
 }
 
+void *hello_init(struct fuse_conn_info *fuse_conn)
+{
+	sqlite3_open("pictures.db", &conn);
+
+    regcomp(&dates_rx, dates_str, REG_EXTENDED);
+    regcomp(&dates_year_rx, dates_year_str, REG_EXTENDED);
+    regcomp(&dates_year_month_rx, dates_year_month_str, REG_EXTENDED);
+    regcomp(&all_rx, all_str, REG_EXTENDED);
+    regcomp(&formats_rx, formats_str, REG_EXTENDED);
+    regcomp(&formats_ext_rx, formats_ext_str, REG_EXTENDED);
+
+    return NULL;
+}
+void hello_destroy(void *userdata)
+{
+	sqlite3_close(conn);
+
+	regfree(&dates_rx);
+    regfree(&dates_year_rx);
+    regfree(&dates_year_month_rx);
+    regfree(&all_rx);
+    regfree(&formats_rx);
+    regfree(&formats_ext_rx);
+}
+
 static struct fuse_operations hello_oper = {
 	.getattr	= hello_getattr,
 	.readdir	= hello_readdir,
@@ -212,10 +249,12 @@ static struct fuse_operations hello_oper = {
 	.read		= hello_read,
 	.write		= hello_write,
 	.mknod		= hello_mknod,
+	.init		= hello_init,
+	.destroy	= hello_destroy,
 };
+
 
 int main(int argc, char *argv[])
 {
-	sqlite3_open("pictures.db", &conn);
 	return fuse_main(argc, argv, &hello_oper, NULL);
 }
