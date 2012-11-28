@@ -17,7 +17,6 @@
 #include <string.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <glob.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -155,8 +154,8 @@ static int hello_write(const char *path, const char *buf, size_t size, off_t off
 	ExifEntry *entry;
 	(void) fi;
 	sqlite3_stmt *stmt;
-	int year = 1969;
-	int month = 1;
+	int year = -1;
+	int month = -1;
 
 	asprintf(&full_path, ".pictures/%s", path + last_index_of(path, '/'));
 
@@ -190,6 +189,17 @@ static int hello_write(const char *path, const char *buf, size_t size, off_t off
 		}
 		exif_data_unref(ed);
 		fclose(f);
+
+		if ( year == -1 || month == -1) {
+			time_t cur_time;
+			struct tm * full_time;
+			time(&cur_time);
+			full_time = localtime(&cur_time);
+			if (year == -1)
+				year = 1900 + full_time->tm_year;
+			if (month == -1)
+				month = full_time->tm_mon;
+		}
 
 		sqlite3_prepare_v2(conn, "insert into pictures values(?, ?, ?)", -1, &stmt, NULL);
 		sqlite3_bind_text(stmt, 1, path + 1, -1, SQLITE_TRANSIENT);
