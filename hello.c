@@ -198,7 +198,7 @@ static int hello_write(const char *path, const char *buf, size_t size, off_t off
 			if (year == -1)
 				year = 1900 + full_time->tm_year;
 			if (month == -1)
-				month = full_time->tm_mon;
+				month = full_time->tm_mon+1;
 		}
 
 		sqlite3_prepare_v2(conn, "insert into pictures values(?, ?, ?)", -1, &stmt, NULL);
