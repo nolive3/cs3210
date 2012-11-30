@@ -21,6 +21,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <regex.h>
+#include <sys/time.h>
 
 #include <sqlite3.h>
 #include <libexif/exif-data.h>
@@ -177,7 +178,6 @@ static int ypfs_write(const char *path, const char *buf, size_t size, off_t offs
 	fclose(f);
 
 	if (offset == 0) {
-
 		f = fopen("log.txt", "a");
 		ed = exif_data_new_from_file(full_path);
 		if (ed) {
@@ -211,7 +211,7 @@ static int ypfs_write(const char *path, const char *buf, size_t size, off_t offs
 		}
 
 		sqlite3_prepare_v2(conn, "insert into pictures values(?, ?, ?)", -1, &stmt, NULL);
-		sqlite3_bind_text(stmt, 1, path + 1, -1, SQLITE_TRANSIENT);
+		sqlite3_bind_text(stmt, 1, path + last_index_of(path, '/'), -1, SQLITE_TRANSIENT);
 		sqlite3_bind_int(stmt, 2, year);
 		sqlite3_bind_int(stmt, 3, month);
 		sqlite3_step(stmt);
@@ -348,8 +348,7 @@ static struct fuse_operations ypfs_oper = {
 	.destroy	= ypfs_destroy,
 	.chown		= ypfs_chown,
 	.chmod		= ypfs_chmod,
-	.utime		= ypfs_utime,
-	.utime      = ypfs_utimens,
+	.utimens	= ypfs_utimens,
 	.truncate	= ypfs_truncate,
 };
 

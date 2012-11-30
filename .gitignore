@@ -1,7 +1,8 @@
 mnt/
 .pictures/
+.directory
 *.o
 *.db
 *~
-hello
+ypfs
 log.txt
