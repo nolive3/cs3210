@@ -25,20 +25,29 @@
 #include <sqlite3.h>
 #include <libexif/exif-data.h>
 
-#include "hello.h"
+#include "ypfs.h"
 #include "dir_handlers.h"
 #include "utils.h"
 
 sqlite3* conn;
 
-static int hello_getattr(const char *path, struct stat *stbuf)
+char* path_prefix = ".pictures/%s";
+
+char* build_path(const char* path) {
+	char* full_path;
+	asprintf(&full_path, ".pictures/%s", path + last_index_of(path, '/'));
+	return full_path;
+}
+
+static int ypfs_getattr(const char *path, struct stat *stbuf)
 {
 	char* full_path;
 	int ret_code = 0;
 	struct stat real_stat;
 	FILE* f;
 
-	asprintf(&full_path, ".pictures/%s", path + last_index_of(path, '/'));
+	full_path = build_path(path);
+
 	f = fopen("log.txt", "a");
 	fprintf(f, "path: [%s] real path: [%s]\n", path, full_path);
 	fclose(f);
@@ -61,7 +70,7 @@ static int hello_getattr(const char *path, struct stat *stbuf)
 	return ret_code;
 }
 
-static int hello_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
+static int ypfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 			 off_t offset, struct fuse_file_info *fi)
 {
 	(void) offset;
@@ -91,13 +100,13 @@ static int hello_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 	return 0;
 }
 
-static int hello_open(const char *path, struct fuse_file_info *fi)
+static int ypfs_open(const char *path, struct fuse_file_info *fi)
 {
 	char* full_path;
 	FILE* f;
 	int ret_code;
 
-	asprintf(&full_path, ".pictures/%s", path + last_index_of(path, '/'));
+	full_path = build_path(path);
 	
 	if ( (f = fopen(full_path, "r")) ) {
 		ret_code = 0;
@@ -112,7 +121,7 @@ static int hello_open(const char *path, struct fuse_file_info *fi)
 	return ret_code;
 }
 
-static int hello_read(const char *path, char *buf, size_t size, off_t offset,
+static int ypfs_read(const char *path, char *buf, size_t size, off_t offset,
 		      struct fuse_file_info *fi)
 {
 	char* full_path;
@@ -121,7 +130,7 @@ static int hello_read(const char *path, char *buf, size_t size, off_t offset,
 	struct stat real_stat;
 	size_t real_size;
 
-	asprintf(&full_path, ".pictures/%s", path + last_index_of(path, '/'));
+	full_path = build_path(path);
 
 	if( !(f = fopen(full_path, "r")) ) {
 		free(full_path);	
@@ -145,7 +154,7 @@ static int hello_read(const char *path, char *buf, size_t size, off_t offset,
 	return size;
 }
 
-static int hello_write(const char *path, const char *buf, size_t size, off_t offset,
+static int ypfs_write(const char *path, const char *buf, size_t size, off_t offset,
 		      struct fuse_file_info *fi)
 {
 	char* full_path;
@@ -157,7 +166,7 @@ static int hello_write(const char *path, const char *buf, size_t size, off_t off
 	int year = -1;
 	int month = -1;
 
-	asprintf(&full_path, ".pictures/%s", path + last_index_of(path, '/'));
+	full_path = build_path(path);
 
 	if( !(f = fopen(full_path, "a")) ) {
 		free(full_path);
@@ -214,12 +223,12 @@ static int hello_write(const char *path, const char *buf, size_t size, off_t off
 	return size;
 }
 
-static int hello_mknod(const char *path, mode_t mode, dev_t rdev) {
+static int ypfs_mknod(const char *path, mode_t mode, dev_t rdev) {
 
 	int ret_code;
 	char* full_path;
 
-	asprintf(&full_path, ".pictures/%s", path + last_index_of(path, '/'));
+	full_path = build_path(path);
 	
 	ret_code = mknod(full_path, mode, rdev);
 
@@ -227,7 +236,83 @@ static int hello_mknod(const char *path, mode_t mode, dev_t rdev) {
 	return ret_code;
 }
 
-void *hello_init(struct fuse_conn_info *fuse_conn)
+/** Change the permission bits of a file */
+int ypfs_chmod(const char *path, mode_t mode)
+{
+    int ret_code = 0;
+    char* full_path;
+
+    full_path = build_path(path);
+    
+    ret_code = chmod(full_path, mode);
+
+    free(full_path);
+    return ret_code;
+}
+
+/** Change the owner and group of a file */
+int ypfs_chown(const char *path, uid_t uid, gid_t gid)
+  
+{
+	int ret_code = 0;
+    char* full_path;
+
+    full_path = build_path(path);
+    
+    ret_code = chown(full_path, uid, gid);
+
+    free(full_path);
+    return ret_code;
+}
+
+/** Change the access and/or modification times of a file */
+/* note -- I'll want to change this as soon as 2.6 is in debian testing */
+int ypfs_utime(const char *path, struct utimbuf *ubuf)
+{
+	int ret_code = 0;
+    char* full_path;
+
+    full_path = build_path(path);
+    
+    ret_code = utime(full_path, ubuf);
+
+    free(full_path);
+    return ret_code;
+}
+
+int ypfs_utimens(const char * path, const struct timespec ts[2]) {
+	int ret_code = 0;
+    char* full_path;
+	struct timeval tv[2];
+
+    full_path = build_path(path);
+
+	tv[0].tv_sec = ts[0].tv_sec;
+	tv[0].tv_usec = ts[0].tv_nsec / 1000;
+	tv[1].tv_sec = ts[1].tv_sec;
+	tv[1].tv_usec = ts[1].tv_nsec / 1000;
+
+    ret_code = utimes(full_path, tv);
+
+    free(full_path);
+    return ret_code;
+}
+
+/** Change the size of a file */
+int ypfs_truncate(const char *path, off_t newsize)
+{
+	int ret_code = 0;
+    char* full_path;
+
+    full_path = build_path(path);
+    
+    ret_code = truncate(full_path, newsize);
+
+    free(full_path);
+    return ret_code;
+}
+
+void *ypfs_init(struct fuse_conn_info *fuse_conn)
 {
 	sqlite3_open("pictures.db", &conn);
 
@@ -240,7 +325,7 @@ void *hello_init(struct fuse_conn_info *fuse_conn)
 
     return NULL;
 }
-void hello_destroy(void *userdata)
+void ypfs_destroy(void *userdata)
 {
 	sqlite3_close(conn);
 
@@ -252,19 +337,24 @@ void hello_destroy(void *userdata)
     regfree(&formats_ext_rx);
 }
 
-static struct fuse_operations hello_oper = {
-	.getattr	= hello_getattr,
-	.readdir	= hello_readdir,
-	.open		= hello_open,
-	.read		= hello_read,
-	.write		= hello_write,
-	.mknod		= hello_mknod,
-	.init		= hello_init,
-	.destroy	= hello_destroy,
+static struct fuse_operations ypfs_oper = {
+	.getattr	= ypfs_getattr,
+	.readdir	= ypfs_readdir,
+	.open		= ypfs_open,
+	.read		= ypfs_read,
+	.write		= ypfs_write,
+	.mknod		= ypfs_mknod,
+	.init		= ypfs_init,
+	.destroy	= ypfs_destroy,
+	.chown		= ypfs_chown,
+	.chmod		= ypfs_chmod,
+	.utime		= ypfs_utime,
+	.utime      = ypfs_utimens,
+	.truncate	= ypfs_truncate,
 };
 
 
 int main(int argc, char *argv[])
 {
-	return fuse_main(argc, argv, &hello_oper, NULL);
+	return fuse_main(argc, argv, &ypfs_oper, NULL);
 }
