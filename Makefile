@@ -2,10 +2,16 @@ all: run
 
 build: ypfs
 
-run: ypfs db
-	mkdir -p .pictures
-	mkdir -p mnt
+run: ypfs db .pictures mnt
 	./ypfs -d mnt/
+
+.pictures:
+	mkdir -p .pictures
+	
+
+mnt:
+	mkdir -p mnt
+	
 
 clean:
 	rm -f *.o
