@@ -59,7 +59,8 @@ static int ypfs_getattr(const char *path, struct stat *stbuf)
 		stbuf->st_nlink = 2;
 	} else if ( !regexec(&all_rx, path, 0, NULL, 0) || !regexec(&formats_rx, path, 0, NULL, 0) ||
 				!regexec(&formats_ext_rx, path, 0, NULL, 0) || !regexec(&dates_rx, path, 0, NULL, 0) ||
-				!regexec(&dates_year_rx, path, 0, NULL, 0) || !regexec(&dates_year_month_rx, path, 0, NULL, 0) ) {
+				!regexec(&dates_year_rx, path, 0, NULL, 0) || !regexec(&dates_year_month_rx, path, 0, NULL, 0) ||
+				!regexec(&search_rx, path, 0, NULL, 0) || !regexec(&search_term_rx, path, 0, NULL, 0) ) {
 		stbuf->st_mode = S_IFDIR | 0755;
 	}else if ( !stat(full_path, &real_stat) ) {
 		memcpy(stbuf, &real_stat, sizeof(real_stat));
@@ -94,6 +95,10 @@ static int ypfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 		dir_dates_year(path, buf, filler, conn);
 	} else if ( !regexec(&dates_year_month_rx, path, 0, NULL, 0) ) {
 		dir_dates_year_month(path, buf, filler, conn);
+	} else if ( !regexec(&search_rx, path, 0, NULL, 0) ) {
+		return 0;
+	} else if ( !regexec(&search_term_rx, path, 0, NULL, 0) ) {
+		dir_search_term(path, buf, filler, conn);
 	} else {
 		return -ENOENT;
 	}
@@ -322,6 +327,8 @@ void *ypfs_init(struct fuse_conn_info *fuse_conn)
     regcomp(&all_rx, all_str, REG_EXTENDED);
     regcomp(&formats_rx, formats_str, REG_EXTENDED);
     regcomp(&formats_ext_rx, formats_ext_str, REG_EXTENDED);
+    regcomp(&search_rx, search_str, REG_EXTENDED);
+    regcomp(&search_term_rx, search_term_str, REG_EXTENDED);
 
     return NULL;
 }
@@ -335,6 +342,8 @@ void ypfs_destroy(void *userdata)
     regfree(&all_rx);
     regfree(&formats_rx);
     regfree(&formats_ext_rx);
+    regfree(&search_rx);
+    regfree(&search_term_rx);
 }
 
 static struct fuse_operations ypfs_oper = {
