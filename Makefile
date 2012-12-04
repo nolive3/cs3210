@@ -2,7 +2,7 @@ all: run
 
 build: ypfs
 
-run: ypfs db .pictures mnt
+run: ypfs pictures.db .pictures mnt
 	./ypfs -d mnt/
 
 .pictures:
@@ -21,7 +21,7 @@ clean:
 	rm -rf .pictures
 	rm -rf mnt
 
-db:
+pictures.db:
 	./build_db.sh
 
 tar:

@@ -29,7 +29,7 @@
 #include "ypfs.h"
 #include "dir_handlers.h"
 #include "utils.h"
-
+#define DEBUG
 sqlite3* conn;
 
 char* path_prefix = ".pictures/%s";
@@ -47,6 +47,15 @@ static int ypfs_getattr(const char *path, struct stat *stbuf)
 	struct stat real_stat;
 	FILE* f;
 
+#ifdef DEBUG
+	if(strcmp(path, "/debug") == 0) {
+		stbuf->st_mode = S_IFREG | 0444;
+		stbuf->st_nlink = 1;
+		stbuf->st_size = 10;
+		return 0;
+	}
+#endif
+
 	full_path = build_path(path);
 
 	f = fopen("log.txt", "a");
@@ -55,13 +64,13 @@ static int ypfs_getattr(const char *path, struct stat *stbuf)
 
 	memset(stbuf, 0, sizeof(struct stat));
 	if (strcmp(path, "/") == 0) {
-		stbuf->st_mode = S_IFDIR | 0755;
+		stbuf->st_mode = S_IFDIR | 0777;
 		stbuf->st_nlink = 2;
 	} else if ( !regexec(&all_rx, path, 0, NULL, 0) || !regexec(&formats_rx, path, 0, NULL, 0) ||
 				!regexec(&formats_ext_rx, path, 0, NULL, 0) || !regexec(&dates_rx, path, 0, NULL, 0) ||
 				!regexec(&dates_year_rx, path, 0, NULL, 0) || !regexec(&dates_year_month_rx, path, 0, NULL, 0) ||
 				!regexec(&search_rx, path, 0, NULL, 0) || !regexec(&search_term_rx, path, 0, NULL, 0) ) {
-		stbuf->st_mode = S_IFDIR | 0755;
+		stbuf->st_mode = S_IFDIR | 0777;
 	}else if ( !stat(full_path, &real_stat) ) {
 		memcpy(stbuf, &real_stat, sizeof(real_stat));
 	} else {
@@ -80,6 +89,11 @@ static int ypfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 
 	filler(buf, ".", NULL, 0);
 	filler(buf, "..", NULL, 0);
+
+#ifdef DEBUG
+	if(!strcmp(path,"/"))
+		filler(buf, "debug", NULL, 0);
+#endif
 
 	if ( !strcmp(path, "/") ) {
 		dir_root(path, buf, filler, NULL);
@@ -111,7 +125,11 @@ static int ypfs_open(const char *path, struct fuse_file_info *fi)
 	char* full_path;
 	FILE* f;
 	int ret_code;
-
+#ifdef DEBUG
+	if(!strcmp(path,"/debug")){
+		return 0;
+	}
+#endif
 	full_path = build_path(path);
 	
 	if ( (f = fopen(full_path, "r")) ) {
@@ -135,6 +153,24 @@ static int ypfs_read(const char *path, char *buf, size_t size, off_t offset,
 	(void) fi;
 	struct stat real_stat;
 	size_t real_size;
+
+#ifdef DEBUG
+	if(!strcmp(path,"/debug")){
+		size_t len;
+		char* debugstr=NULL;
+		len = asprintf(&debugstr, "%10u\n", getuid());
+		if (len == (size_t)-1)
+			return 0;
+		if (offset < len) {
+			if (offset + size > len)
+				size = len - offset;
+			memcpy(buf, debugstr + offset, size);
+		}else
+			size = 0;
+		free(debugstr);
+		return size;
+	}
+#endif
 
 	full_path = build_path(path);
 
