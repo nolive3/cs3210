@@ -5,6 +5,9 @@ build: ypfs
 run: ypfs pictures.db .pictures mnt
 	./ypfs -d mnt/
 
+share: ypfs pictures.db .pictures mnt
+	./ypfs -oallow_other -d mnt/
+
 .pictures:
 	mkdir -p .pictures
 	
