@@ -1,0 +1,4 @@
+#! /bin/bash
+
+openssl enc -e -salt -aes-256-cbc -in $1 -out $1.enc -pass pass:"`cat $1.pass | openssl rsautl -decrypt -raw -inkey $HOME/.ssh/id_rsa`"
+
