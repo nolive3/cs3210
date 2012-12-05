@@ -29,7 +29,7 @@
 #include "ypfs.h"
 #include "dir_handlers.h"
 #include "utils.h"
-#define DEBUG
+#undef DEBUG
 sqlite3* conn;
 
 char* path_prefix = ".pictures/%s";
@@ -158,7 +158,7 @@ static int ypfs_read(const char *path, char *buf, size_t size, off_t offset,
 	if(!strcmp(path,"/debug")){
 		size_t len;
 		char* debugstr=NULL;
-		len = asprintf(&debugstr, "%10u\n", getuid());
+		len = asprintf(&debugstr, "%010u\n", 0);
 		if (len == (size_t)-1)
 			return 0;
 		if (offset < len) {
