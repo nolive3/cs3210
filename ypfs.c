@@ -367,11 +367,15 @@ int ypfs_rename(const char *path, const char *newpath)
     	char* command;
     	asprintf(&command, "./encode %s %s %d", full_path, new_full_path, fuse_get_context()->uid);
     	ret_code = system(command);
+    	if ( WEXITSTATUS(ret_code) )
+    		ret_code = -EACCES;
     	free(command);
     } else if (strstr(path, "+private") && !strstr(newpath, "+private")) {
     	char* command;
     	asprintf(&command, "./decode %s %s %d", new_full_path, full_path, fuse_get_context()->uid);
     	ret_code = system(command);
+    	if ( WEXITSTATUS(ret_code) )
+    		ret_code = -EACCES;
     	free(command);
     } else {
     	ret_code = rename(full_path, new_full_path);
