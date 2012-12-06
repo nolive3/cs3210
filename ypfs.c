@@ -353,6 +353,44 @@ int ypfs_truncate(const char *path, off_t newsize)
     return ret_code;
 }
 
+int ypfs_rename(const char *path, const char *newpath)
+{
+    int ret_code = 0;
+    char* full_path;
+    char* new_full_path;
+	sqlite3_stmt *stmt;
+
+    full_path = build_path(path);
+    new_full_path = build_path(newpath);
+    
+    if (!strstr(path, "+private") && strstr(newpath, "+private")) {
+    	char* command;
+    	asprintf(&command, "./encode %s %s %d", full_path, new_full_path, fuse_get_context()->uid);
+    	ret_code = system(command);
+    	free(command);
+    } else if (strstr(path, "+private") && !strstr(newpath, "+private")) {
+    	char* command;
+    	asprintf(&command, "./decode %s %s %d", new_full_path, full_path, fuse_get_context()->uid);
+    	ret_code = system(command);
+    	free(command);
+    } else {
+    	ret_code = rename(full_path, new_full_path);
+    }
+    
+	if (!ret_code) {
+		sqlite3_prepare_v2(conn, "UPDATE pictures SET filename=? WHERE filename=?", -1, &stmt, NULL);
+		sqlite3_bind_text(stmt, 2, path + last_index_of(path, '/'), -1, SQLITE_TRANSIENT);
+		sqlite3_bind_text(stmt, 1, newpath + last_index_of(newpath, '/'), -1, SQLITE_TRANSIENT);
+		sqlite3_step(stmt);
+		sqlite3_finalize(stmt);
+	}
+
+ 	free(full_path);
+    free(new_full_path);
+
+    return ret_code;
+}
+
 void *ypfs_init(struct fuse_conn_info *fuse_conn)
 {
 	sqlite3_open("pictures.db", &conn);
@@ -395,6 +433,7 @@ static struct fuse_operations ypfs_oper = {
 	.chmod		= ypfs_chmod,
 	.utimens	= ypfs_utimens,
 	.truncate	= ypfs_truncate,
+	.rename		= ypfs_rename,
 };
 
 
