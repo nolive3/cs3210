@@ -1,4 +1,7 @@
 #! /bin/bash
+set -e
+set -u
+set -o pipefail
 p=`awk -F: -v v="$3" '{if ($3==v) print $6}' /etc/passwd`
 openssl enc -e -salt -aes-256-cbc -in $1 -out $2 -pass pass:"`echo -n RANDOM_STRING | openssl rsautl -decrypt -raw -inkey $p/.ssh/id_rsa`"
-
+rm $1
