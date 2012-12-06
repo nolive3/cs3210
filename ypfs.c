@@ -251,10 +251,11 @@ static int ypfs_write(const char *path, const char *buf, size_t size, off_t offs
 				month = full_time->tm_mon+1;
 		}
 
-		sqlite3_prepare_v2(conn, "insert into pictures values(?, ?, ?)", -1, &stmt, NULL);
+		sqlite3_prepare_v2(conn, "insert into pictures values(?, ?, ?, ?)", -1, &stmt, NULL);
 		sqlite3_bind_text(stmt, 1, path + last_index_of(path, '/'), -1, SQLITE_TRANSIENT);
 		sqlite3_bind_int(stmt, 2, year);
 		sqlite3_bind_int(stmt, 3, month);
+		sqlite3_bind_int(stmt, 4, fuse_get_context()->uid);
 		sqlite3_step(stmt);
 		sqlite3_finalize(stmt);
 
@@ -395,6 +396,35 @@ int ypfs_rename(const char *path, const char *newpath)
     return ret_code;
 }
 
+/** Remove a file */
+int ypfs_unlink(const char *path)
+{
+    int ret_code = 0;
+    char* full_path;
+	sqlite3_stmt *stmt;
+	
+	/*	Add check for uid and don't allow a delete from another user
+	sqlite3_prepare_v2(conn, "SELECT * FROM pictures WHERE filename=? AND uid=?", -1, &stmt, NULL);
+	sqlite3_bind_text(stmt, 1, path + last_index_of(path, '/'), -1, SQLITE_TRANSIENT);
+	sqlite3_bind_int(stmt, 2, fuse_get_context()->uid);
+	sqlite3_step(stmt);
+	sqlite3_finalize(stmt);
+	*/
+
+    full_path = build_path(path);
+
+    ret_code = unlink(full_path);
+
+	if (!ret_code) {
+		sqlite3_prepare_v2(conn, "DELETE FROM pictures WHERE filename=?", -1, &stmt, NULL);
+		sqlite3_bind_text(stmt, 1, path + last_index_of(path, '/'), -1, SQLITE_TRANSIENT);
+		sqlite3_step(stmt);
+		sqlite3_finalize(stmt);
+	}
+
+    return ret_code;
+}
+
 void *ypfs_init(struct fuse_conn_info *fuse_conn)
 {
 	sqlite3_open("pictures.db", &conn);
@@ -438,6 +468,7 @@ static struct fuse_operations ypfs_oper = {
 	.utimens	= ypfs_utimens,
 	.truncate	= ypfs_truncate,
 	.rename		= ypfs_rename,
+	.unlink		= ypfs_unlink,
 };
 
 

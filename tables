@@ -1,1 +1,1 @@
-create table pictures(filename text primary key, year int, month int);
+create table pictures(filename text primary key, year int, month int, uid int);
