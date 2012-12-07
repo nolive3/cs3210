@@ -112,14 +112,14 @@ static int ypfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 	} else {
 		return -ENOENT;
 	}
-
+	
 	return 0;
 }
 
 static int ypfs_open(const char *path, struct fuse_file_info *fi)
 {
 	char* full_path;
-	FILE* f;
+	int f;
 	int ret_code;
 
 	if ( !hasPermission(CURRENT->uid, path, conn) ) {
@@ -133,11 +133,13 @@ static int ypfs_open(const char *path, struct fuse_file_info *fi)
 #endif
 	full_path = build_path(path);
 	
-	if ( (f = fopen(full_path, "r")) ) {
+	if ( (f = open(full_path, fi->flags) ) ) {
 		ret_code = 0;
 	} else {
 		ret_code = -ENOENT;
 	}
+
+	fi->fh = f;
 
 	//if ((fi->flags & 3) != O_RDONLY)
 	//	return -EACCES;
@@ -150,8 +152,6 @@ static int ypfs_read(const char *path, char *buf, size_t size, off_t offset,
 		      struct fuse_file_info *fi)
 {
 	char* full_path;
-	FILE* f;
-	(void) fi;
 	struct stat real_stat;
 	size_t real_size;
 
@@ -162,7 +162,8 @@ static int ypfs_read(const char *path, char *buf, size_t size, off_t offset,
 		len = asprintf(&debugstr, "%010u\n", CURRENT->uid);
 		if (len == (size_t)-1)
 			return 0;
-		if (offset < len) {
+		if (offset < len) /if ((fi->flags & 3) != O_RDONLY)
+	//	return -EACCES;{
 			if (offset + size > len)
 				size = len - offset;
 			memcpy(buf, debugstr + offset, size);
@@ -175,24 +176,17 @@ static int ypfs_read(const char *path, char *buf, size_t size, off_t offset,
 
 	full_path = build_path(path);
 
-	if( !(f = fopen(full_path, "r")) ) {
-		free(full_path);	
-		return -ENOENT;
-	}
-
 	stat(full_path, &real_stat);
 	real_size = real_stat.st_size;
 
 	if (offset < real_size) {
 		if (offset + size > real_size)
 			size = real_size - offset;
-		fseek(f, offset, SEEK_SET);
-		fread(buf, sizeof(char), size, f);
+		pread(fi->fh, buf, size, offset);
 	} else {
 		size = 0;
 	}
 
-	fclose(f);
 	free(full_path);
 	return size;
 }
@@ -201,7 +195,8 @@ static int ypfs_write(const char *path, const char *buf, size_t size, off_t offs
 		      struct fuse_file_info *fi)
 {
 	char* full_path;
-	FILE* f;
+	FILE* logfile;
+	int f;
 	ExifData *ed;
 	ExifEntry *entry;
 	(void) fi;
@@ -211,35 +206,31 @@ static int ypfs_write(const char *path, const char *buf, size_t size, off_t offs
 
 	full_path = build_path(path);
 
-	if( !(f = fopen(full_path, "a")) ) {
-		free(full_path);
-		return -ENOENT;
-	}
+	f = fi->fh;
 
-	fwrite(buf, sizeof(char), size, f);
-	fclose(f);
+	write(f, buf, size);
 
 	if (offset == 0) {
-		f = fopen("log.txt", "a");
+		logfile = fopen("log.txt", "a");
 		ed = exif_data_new_from_file(full_path);
 		if (ed) {
 			entry = exif_content_get_entry(ed->ifd[EXIF_IFD_EXIF], EXIF_TAG_DATE_TIME_ORIGINAL);
 			if (entry) {
 				char buf[1024];
 		        exif_entry_get_value(entry, buf, sizeof(buf));
-		        fprintf(f, "%s had date %s\n", full_path, buf);
+		        fprintf(logfile, "%s had date %s\n", full_path, buf);
 		        buf[4] = 0;
 		        buf[7] = 0;
 		        year = atoi(buf);
 		        month = atoi(buf+5);
 			} else {
-				fprintf(f,"%s had exif data, but no date\n", full_path);
+				fprintf(logfile,"%s had exif data, but no date\n", full_path);
 			}
 		} else {
-			fprintf(f,"%s had no exif data\n", full_path);
+			fprintf(logfile,"%s had no exif data\n", full_path);
 		}
 		exif_data_unref(ed);
-		fclose(f);
+		fclose(logfile);
 
 		if ( year == -1 || month == -1) {
 			time_t cur_time;
@@ -425,6 +416,22 @@ int ypfs_unlink(const char *path)
     return ret_code;
 }
 
+int ypfs_release(const char *path, struct fuse_file_info *fi)
+{
+
+    int ret_code;
+
+#ifdef DEBUG
+	if(!strcmp(path,"/debug")){
+		return 0;
+	}
+#endif
+
+    ret_code = close(fi->fh);
+    
+    return ret_code;
+}
+
 void *ypfs_init(struct fuse_conn_info *fuse_conn)
 {
 	sqlite3_open("pictures.db", &conn);
@@ -469,6 +476,7 @@ static struct fuse_operations ypfs_oper = {
 	.truncate	= ypfs_truncate,
 	.rename		= ypfs_rename,
 	.unlink		= ypfs_unlink,
+	.release	= ypfs_release,
 };
 
 
