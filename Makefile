@@ -40,4 +40,4 @@ dir_handlers.o: dir_handlers.c dir_handlers.h utils.h
 	gcc -Wall -c dir_handlers.c `pkg-config fuse --cflags --libs` -lsqlite3
 
 utils.o: utils.h utils.c
-	gcc -Wall -c utils.c
+	gcc -Wall -c utils.c -lsqlite3

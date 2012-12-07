@@ -1,5 +1,33 @@
 #include <string.h>
+#include <sqlite3.h>
+#include <sys/types.h>
+#include <unistd.h>
 #include "utils.h"
+
+int hasPermission(uid_t uid, const char * path, sqlite3* conn) {
+	sqlite3_stmt *stmt;
+	int ret_code = 0;
+	int db_code = 0;
+	if ( !strstr(path, "+private") ) {
+		ret_code = 1;
+	} else {
+		sqlite3_prepare_v2(conn, "SELECT uid FROM pictures WHERE filename=?", -1, &stmt, NULL);
+		sqlite3_bind_text(stmt, 1, path + last_index_of(path, '/'), -1, SQLITE_TRANSIENT);
+		db_code = sqlite3_step(stmt);
+
+		if (db_code == SQLITE_ROW) {
+			int db_uid = sqlite3_column_int(stmt,0);
+			if (db_uid == uid) {
+				ret_code = 1;
+			}
+		} else {
+			ret_code = 1;
+		}
+
+		sqlite3_finalize(stmt);
+	}
+	return ret_code;
+}
 
 int last_index_of(const char* path, char c) {
 	return last_index_of_pos(path, c, strlen(path));
