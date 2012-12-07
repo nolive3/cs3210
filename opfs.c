@@ -29,7 +29,7 @@
 #include "opfs.h"
 #include "dir_handlers.h"
 #include "utils.h"
-#define DEBUG
+#undef DEBUG
 #define CURRENT fuse_get_context()
 sqlite3* conn;
 
@@ -49,7 +49,7 @@ static int ypfs_getattr(const char *path, struct stat *stbuf)
 
 #ifdef DEBUG
 	if(1){
-		FILE *f2 = fopen("log2.txt", "a");
+		FILE *f2 = fopen("/opfs/log2.txt", "a");
 		fprintf(f2, "GETATTR: %s\n", path);
 		fclose(f2);
 	}
@@ -96,7 +96,7 @@ static int ypfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 
 #ifdef DEBUG
 	if(1){
-		FILE *f2 = fopen("log2.txt", "a");
+		FILE *f2 = fopen("/opfs/log2.txt", "a");
 		fprintf(f2, "READDIR: %s\n", path);
 		fclose(f2);
 	}
@@ -139,7 +139,7 @@ static int ypfs_open(const char *path, struct fuse_file_info *fi)
 	int ret_code;
 #ifdef DEBUG
 	if(1){
-		FILE *f2 = fopen("log2.txt", "a");
+		FILE *f2 = fopen("/opfs/log2.txt", "a");
 		fprintf(f2, "OPEN: %s\n", path);
 		fclose(f2);
 	}
@@ -180,7 +180,7 @@ static int ypfs_read(const char *path, char *buf, size_t size, off_t offset,
 
 #ifdef DEBUG
 	if(1){
-		FILE *f2 = fopen("log2.txt", "a");
+		FILE *f2 = fopen("/opfs/log2.txt", "a");
 		fprintf(f2, "READ: %s\n", path);
 		fclose(f2);
 	}
@@ -236,7 +236,7 @@ static int ypfs_write(const char *path, const char *buf, size_t size, off_t offs
 
 #ifdef DEBUG
 	if(1){
-		FILE *f2 = fopen("log2.txt", "a");
+		FILE *f2 = fopen("/opfs/log2.txt", "a");
 		fprintf(f2, "WRITE: %s\n", path);
 		fclose(f2);
 	}
@@ -303,7 +303,7 @@ static int ypfs_mknod(const char *path, mode_t mode, dev_t rdev) {
 
 #ifdef DEBUG
 	if(1){
-		FILE *f2 = fopen("log2.txt", "a");
+		FILE *f2 = fopen("/opfs/log2.txt", "a");
 		fprintf(f2, "MKNOD: %s->%s\n", path, full_path);
 		fclose(f2);
 	}
@@ -324,7 +324,7 @@ int ypfs_chmod(const char *path, mode_t mode)
 
 #ifdef DEBUG
 	if(1){
-		FILE *f2 = fopen("log2.txt", "a");
+		FILE *f2 = fopen("/opfs/log2.txt", "a");
 		fprintf(f2, "CHMOD: %s\n", path);
 		fclose(f2);
 	}
@@ -347,7 +347,7 @@ int ypfs_chown(const char *path, uid_t uid, gid_t gid)
 
 #ifdef DEBUG
 	if(1){
-		FILE *f2 = fopen("log2.txt", "a");
+		FILE *f2 = fopen("/opfs/log2.txt", "a");
 		fprintf(f2, "CHOWN: %s\n", path);
 		fclose(f2);
 	}
@@ -370,7 +370,7 @@ int ypfs_utime(const char *path, struct utimbuf *ubuf)
 
 #ifdef DEBUG
 	if(1){
-		FILE *f2 = fopen("log2.txt", "a");
+		FILE *f2 = fopen("/opfs/log2.txt", "a");
 		fprintf(f2, "UTIME: %s\n", path);
 		fclose(f2);
 	}
@@ -391,7 +391,7 @@ int ypfs_utimens(const char * path, const struct timespec ts[2]) {
 
 #ifdef DEBUG
 	if(1){
-		FILE *f2 = fopen("log2.txt", "a");
+		FILE *f2 = fopen("/opfs/log2.txt", "a");
 		fprintf(f2, "UTIMENS: %s\n", path);
 		fclose(f2);
 	}
@@ -419,12 +419,12 @@ int ypfs_truncate(const char *path, off_t newsize)
     full_path = build_path(path);
 #ifdef DEBUG
 	if(1){
-		FILE *f2 = fopen("log2.txt", "a");
+		FILE *f2 = fopen("/opfs/log2.txt", "a");
 		fprintf(f2, "TRUNCATE: %s\n", path);
 		fclose(f2);
 	}
 
-#endif= build_path(path);
+#endif
     
     ret_code = truncate(full_path, newsize);
 
@@ -441,7 +441,7 @@ int ypfs_rename(const char *path, const char *newpath)
 
 #ifdef DEBUG
 	if(1){
-		FILE *f2 = fopen("log2.txt", "a");
+		FILE *f2 = fopen("/opfs/log2.txt", "a");
 		fprintf(f2, "RENAME: %s TO %s\n", path, newpath);
 		fclose(f2);
 	}
@@ -493,7 +493,7 @@ int ypfs_unlink(const char *path)
 	
 #ifdef DEBUG
 	if(1){
-		FILE *f2 = fopen("log2.txt", "a");
+		FILE *f2 = fopen("/opfs/log2.txt", "a");
 		fprintf(f2, "UNLINK: %s\n", path);
 		fclose(f2);
 	}
@@ -525,7 +525,7 @@ int ypfs_release(const char *path, struct fuse_file_info *fi)
 
 #ifdef DEBUG
 	if(1){
-		FILE *f2 = fopen("log2.txt", "a");
+		FILE *f2 = fopen("/opfs/log2.txt", "a");
 		fprintf(f2, "RELEASE: %s\n", path);
 		fclose(f2);
 	}
@@ -544,11 +544,11 @@ int ypfs_release(const char *path, struct fuse_file_info *fi)
 
 void *ypfs_init(struct fuse_conn_info *fuse_conn)
 {
-	sqlite3_open("/ypfs/pictures.db", &conn);
+	sqlite3_open("/opfs/pictures.db", &conn);
 
 #ifdef DEBUG
 	if(1){
-		FILE *f2 = fopen("/ypfs/log2.txt", "a");
+		FILE *f2 = fopen("/opfs/log2.txt", "a");
 		fprintf(f2, "%s\n", "Hello");
 		fclose(f2);
 	}
@@ -571,7 +571,7 @@ void ypfs_destroy(void *userdata)
 
 #ifdef DEBUG
 	if(1){
-		FILE *f2 = fopen("log2.txt", "a");
+		FILE *f2 = fopen("/opfs/log2.txt", "a");
 		fprintf(f2, "%s\n", "Goodbye");
 		fclose(f2);
 	}

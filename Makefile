@@ -34,6 +34,7 @@ mnt:
 	
 
 clean:
+	fusermount -q -u mnt || true
 	rm -f *.o
 	rm -f opfs
 	rm -rf /opfs
