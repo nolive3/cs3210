@@ -46,7 +46,6 @@ static int ypfs_getattr(const char *path, struct stat *stbuf)
 	char* full_path;
 	int ret_code = 0;
 	struct stat real_stat;
-	FILE* f;
 
 #ifdef DEBUG
 	if(strcmp(path, "/debug") == 0) {
@@ -123,7 +122,7 @@ static int ypfs_open(const char *path, struct fuse_file_info *fi)
 	FILE* f;
 	int ret_code;
 
-	if ( !hasPermission(fuse_get_context()->uid, path, conn) ) {
+	if ( !hasPermission(CURRENT->uid, path, conn) ) {
     	return -EACCES;
     }
 
@@ -257,7 +256,7 @@ static int ypfs_write(const char *path, const char *buf, size_t size, off_t offs
 		sqlite3_bind_text(stmt, 1, path + last_index_of(path, '/'), -1, SQLITE_TRANSIENT);
 		sqlite3_bind_int(stmt, 2, year);
 		sqlite3_bind_int(stmt, 3, month);
-		sqlite3_bind_int(stmt, 4, fuse_get_context()->uid);
+		sqlite3_bind_int(stmt, 4, CURRENT->uid);
 		sqlite3_step(stmt);
 		sqlite3_finalize(stmt);
 
@@ -358,7 +357,6 @@ int ypfs_truncate(const char *path, off_t newsize)
 
 int ypfs_rename(const char *path, const char *newpath)
 {
-	FILE* f;
     int ret_code = 0;
     char* full_path;
     char* new_full_path;
@@ -367,18 +365,18 @@ int ypfs_rename(const char *path, const char *newpath)
     full_path = build_path(path);
     new_full_path = build_path(newpath);
     
-    if ( !hasPermission(fuse_get_context()->uid, path, conn) ) {
+    if ( !hasPermission(CURRENT->uid, path, conn) ) {
     	ret_code = -EACCES;
     } else if (!strstr(path, "+private") && strstr(newpath, "+private")) {
     	char* command;
-    	asprintf(&command, "./encode \"%s\" \"%s\" \"%d\"", full_path, new_full_path, fuse_get_context()->uid);
+    	asprintf(&command, "./encode \"%s\" \"%s\" \"%d\"", full_path, new_full_path, CURRENT->uid);
     	ret_code = system(command);
     	if ( WEXITSTATUS(ret_code) )
     		ret_code = -EACCES;
     	free(command);
     } else if (strstr(path, "+private") && !strstr(newpath, "+private")) {
     	char* command;
-    	asprintf(&command, "./decode \"%s\" \"%s\" \"%d\"", new_full_path, full_path, fuse_get_context()->uid);
+    	asprintf(&command, "./decode \"%s\" \"%s\" \"%d\"", new_full_path, full_path, CURRENT->uid);
     	ret_code = system(command);
     	if ( WEXITSTATUS(ret_code) )
     		ret_code = -EACCES;
@@ -408,7 +406,7 @@ int ypfs_unlink(const char *path)
     char* full_path = NULL;
 	sqlite3_stmt *stmt;
 	
-    if ( !hasPermission(fuse_get_context()->uid, path, conn) ) {
+    if ( !hasPermission(CURRENT->uid, path, conn) ) {
     	ret_code = -EACCES;
     } else {
 	    full_path = build_path(path);
