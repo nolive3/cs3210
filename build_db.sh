@@ -1,3 +1,3 @@
 #!/bin/bash
 
-sqlite3 pictures.db < tables
+sqlite3 /opfs/pictures.db < tables

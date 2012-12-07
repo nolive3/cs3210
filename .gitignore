@@ -4,5 +4,5 @@ mnt/
 *.o
 *.db
 *~
-ypfs
+opfs
 log.txt

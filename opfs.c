@@ -26,18 +26,18 @@
 #include <sqlite3.h>
 #include <libexif/exif-data.h>
 
-#include "ypfs.h"
+#include "opfs.h"
 #include "dir_handlers.h"
 #include "utils.h"
-#undef DEBUG
+#define DEBUG
 #define CURRENT fuse_get_context()
 sqlite3* conn;
 
-char* path_prefix = ".pictures/%s";
+char* path_prefix = "/opfs/.pictures/";
 
 char* build_path(const char* path) {
 	char* full_path;
-	asprintf(&full_path, ".pictures/%s", path + last_index_of(path, '/'));
+	asprintf(&full_path, "%s%s", path_prefix, path + last_index_of(path, '/'));
 	return full_path;
 }
 
@@ -47,6 +47,14 @@ static int ypfs_getattr(const char *path, struct stat *stbuf)
 	int ret_code = 0;
 	struct stat real_stat;
 
+#ifdef DEBUG
+	if(1){
+		FILE *f2 = fopen("log2.txt", "a");
+		fprintf(f2, "GETATTR: %s\n", path);
+		fclose(f2);
+	}
+
+#endif
 #ifdef DEBUG
 	if(strcmp(path, "/debug") == 0) {
 		stbuf->st_mode = S_IFREG | 0444;
@@ -87,6 +95,14 @@ static int ypfs_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
 	filler(buf, "..", NULL, 0);
 
 #ifdef DEBUG
+	if(1){
+		FILE *f2 = fopen("log2.txt", "a");
+		fprintf(f2, "READDIR: %s\n", path);
+		fclose(f2);
+	}
+
+#endif
+#ifdef DEBUG
 	if(!strcmp(path,"/"))
 		filler(buf, "debug", NULL, 0);
 #endif
@@ -121,7 +137,14 @@ static int ypfs_open(const char *path, struct fuse_file_info *fi)
 	char* full_path;
 	int f;
 	int ret_code;
+#ifdef DEBUG
+	if(1){
+		FILE *f2 = fopen("log2.txt", "a");
+		fprintf(f2, "OPEN: %s\n", path);
+		fclose(f2);
+	}
 
+#endif
 	if ( !hasPermission(CURRENT->uid, path, conn) ) {
     	return -EACCES;
     }
@@ -156,14 +179,21 @@ static int ypfs_read(const char *path, char *buf, size_t size, off_t offset,
 	size_t real_size;
 
 #ifdef DEBUG
+	if(1){
+		FILE *f2 = fopen("log2.txt", "a");
+		fprintf(f2, "READ: %s\n", path);
+		fclose(f2);
+	}
+
+#endif
+#ifdef DEBUG
 	if(!strcmp(path,"/debug")){
 		size_t len;
 		char* debugstr=NULL;
 		len = asprintf(&debugstr, "%010u\n", CURRENT->uid);
 		if (len == (size_t)-1)
 			return 0;
-		if (offset < len) /if ((fi->flags & 3) != O_RDONLY)
-	//	return -EACCES;{
+		if (offset < len) {
 			if (offset + size > len)
 				size = len - offset;
 			memcpy(buf, debugstr + offset, size);
@@ -204,6 +234,14 @@ static int ypfs_write(const char *path, const char *buf, size_t size, off_t offs
 	int year = -1;
 	int month = -1;
 
+#ifdef DEBUG
+	if(1){
+		FILE *f2 = fopen("log2.txt", "a");
+		fprintf(f2, "WRITE: %s\n", path);
+		fclose(f2);
+	}
+
+#endif
 	full_path = build_path(path);
 
 	f = fi->fh;
@@ -261,8 +299,16 @@ static int ypfs_mknod(const char *path, mode_t mode, dev_t rdev) {
 
 	int ret_code;
 	char* full_path;
-
 	full_path = build_path(path);
+
+#ifdef DEBUG
+	if(1){
+		FILE *f2 = fopen("log2.txt", "a");
+		fprintf(f2, "MKNOD: %s->%s\n", path, full_path);
+		fclose(f2);
+	}
+
+#endif
 	
 	ret_code = mknod(full_path, mode, rdev);
 
@@ -276,6 +322,14 @@ int ypfs_chmod(const char *path, mode_t mode)
     int ret_code = 0;
     char* full_path;
 
+#ifdef DEBUG
+	if(1){
+		FILE *f2 = fopen("log2.txt", "a");
+		fprintf(f2, "CHMOD: %s\n", path);
+		fclose(f2);
+	}
+
+#endif
     full_path = build_path(path);
     
     ret_code = chmod(full_path, mode);
@@ -291,6 +345,14 @@ int ypfs_chown(const char *path, uid_t uid, gid_t gid)
 	int ret_code = 0;
     char* full_path;
 
+#ifdef DEBUG
+	if(1){
+		FILE *f2 = fopen("log2.txt", "a");
+		fprintf(f2, "CHOWN: %s\n", path);
+		fclose(f2);
+	}
+
+#endif
     full_path = build_path(path);
     
     ret_code = chown(full_path, uid, gid);
@@ -306,6 +368,14 @@ int ypfs_utime(const char *path, struct utimbuf *ubuf)
 	int ret_code = 0;
     char* full_path;
 
+#ifdef DEBUG
+	if(1){
+		FILE *f2 = fopen("log2.txt", "a");
+		fprintf(f2, "UTIME: %s\n", path);
+		fclose(f2);
+	}
+
+#endif
     full_path = build_path(path);
     
     ret_code = utime(full_path, ubuf);
@@ -319,6 +389,14 @@ int ypfs_utimens(const char * path, const struct timespec ts[2]) {
     char* full_path;
 	struct timeval tv[2];
 
+#ifdef DEBUG
+	if(1){
+		FILE *f2 = fopen("log2.txt", "a");
+		fprintf(f2, "UTIMENS: %s\n", path);
+		fclose(f2);
+	}
+
+#endif
     full_path = build_path(path);
 
 	tv[0].tv_sec = ts[0].tv_sec;
@@ -339,6 +417,14 @@ int ypfs_truncate(const char *path, off_t newsize)
     char* full_path;
 
     full_path = build_path(path);
+#ifdef DEBUG
+	if(1){
+		FILE *f2 = fopen("log2.txt", "a");
+		fprintf(f2, "TRUNCATE: %s\n", path);
+		fclose(f2);
+	}
+
+#endif= build_path(path);
     
     ret_code = truncate(full_path, newsize);
 
@@ -353,6 +439,14 @@ int ypfs_rename(const char *path, const char *newpath)
     char* new_full_path;
 	sqlite3_stmt *stmt;
 
+#ifdef DEBUG
+	if(1){
+		FILE *f2 = fopen("log2.txt", "a");
+		fprintf(f2, "RENAME: %s TO %s\n", path, newpath);
+		fclose(f2);
+	}
+
+#endif
     full_path = build_path(path);
     new_full_path = build_path(newpath);
     
@@ -360,14 +454,14 @@ int ypfs_rename(const char *path, const char *newpath)
     	ret_code = -EACCES;
     } else if (!strstr(path, "+private") && strstr(newpath, "+private")) {
     	char* command;
-    	asprintf(&command, "./encode \"%s\" \"%s\" \"%d\"", full_path, new_full_path, CURRENT->uid);
+    	asprintf(&command, "/opfs/encode \"%s\" \"%s\" \"%d\"", full_path, new_full_path, CURRENT->uid);
     	ret_code = system(command);
     	if ( WEXITSTATUS(ret_code) )
     		ret_code = -EACCES;
     	free(command);
     } else if (strstr(path, "+private") && !strstr(newpath, "+private")) {
     	char* command;
-    	asprintf(&command, "./decode \"%s\" \"%s\" \"%d\"", new_full_path, full_path, CURRENT->uid);
+    	asprintf(&command, "/opfs/decode \"%s\" \"%s\" \"%d\"", new_full_path, full_path, CURRENT->uid);
     	ret_code = system(command);
     	if ( WEXITSTATUS(ret_code) )
     		ret_code = -EACCES;
@@ -397,6 +491,14 @@ int ypfs_unlink(const char *path)
     char* full_path = NULL;
 	sqlite3_stmt *stmt;
 	
+#ifdef DEBUG
+	if(1){
+		FILE *f2 = fopen("log2.txt", "a");
+		fprintf(f2, "UNLINK: %s\n", path);
+		fclose(f2);
+	}
+
+#endif
     if ( !hasPermission(CURRENT->uid, path, conn) ) {
     	ret_code = -EACCES;
     } else {
@@ -422,6 +524,14 @@ int ypfs_release(const char *path, struct fuse_file_info *fi)
     int ret_code;
 
 #ifdef DEBUG
+	if(1){
+		FILE *f2 = fopen("log2.txt", "a");
+		fprintf(f2, "RELEASE: %s\n", path);
+		fclose(f2);
+	}
+
+#endif
+#ifdef DEBUG
 	if(!strcmp(path,"/debug")){
 		return 0;
 	}
@@ -434,8 +544,16 @@ int ypfs_release(const char *path, struct fuse_file_info *fi)
 
 void *ypfs_init(struct fuse_conn_info *fuse_conn)
 {
-	sqlite3_open("pictures.db", &conn);
+	sqlite3_open("/ypfs/pictures.db", &conn);
 
+#ifdef DEBUG
+	if(1){
+		FILE *f2 = fopen("/ypfs/log2.txt", "a");
+		fprintf(f2, "%s\n", "Hello");
+		fclose(f2);
+	}
+
+#endif
     regcomp(&dates_rx, dates_str, REG_EXTENDED);
     regcomp(&dates_year_rx, dates_year_str, REG_EXTENDED);
     regcomp(&dates_year_month_rx, dates_year_month_str, REG_EXTENDED);
@@ -451,6 +569,14 @@ void ypfs_destroy(void *userdata)
 {
 	sqlite3_close(conn);
 
+#ifdef DEBUG
+	if(1){
+		FILE *f2 = fopen("log2.txt", "a");
+		fprintf(f2, "%s\n", "Goodbye");
+		fclose(f2);
+	}
+
+#endif
 	regfree(&dates_rx);
     regfree(&dates_year_rx);
     regfree(&dates_year_month_rx);

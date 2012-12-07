@@ -1,16 +1,33 @@
+opfs_base = opfs /opfs/pictures.db /opfs/.pictures mnt /opfs/encode /opfs/decode
+
+
 all: run
 
-build: ypfs
+build: opfs
 
-run: ypfs pictures.db .pictures mnt
-	./ypfs -d mnt/
+run: $(opfs_base)
+	./opfs mnt/
 
-share: ypfs pictures.db .pictures mnt
-	./ypfs -oallow_other -d mnt/
+debug: $(opfs_base)
+	./opfs -d mnt/
 
-.pictures:
-	mkdir -p .pictures
+share: $(opfs_base)
+	./opfs -oallow_other mnt/
+
+share-debug: $(opfs_base)
+	./opfs -oallow_other -d mnt/
+
+/opfs/.pictures:/opfs
+	mkdir -p /opfs/.pictures
 	
+/opfs/decode:/opfs
+	cp decode /opfs/decode
+	
+/opfs/encode:/opfs
+	cp encode /opfs/encode
+	
+/opfs:
+	mkdir -p /opfs
 
 mnt:
 	mkdir -p mnt
@@ -18,23 +35,21 @@ mnt:
 
 clean:
 	rm -f *.o
-	rm -f ypfs
-	rm -f log.txt
-	rm -f pictures.db
-	rm -rf .pictures
+	rm -f opfs
+	rm -rf /opfs
 	rm -rf mnt
 
-pictures.db:
+/opfs/pictures.db:/opfs
 	./build_db.sh
 
 tar:
 	tar -cf fuse.tar.gz Makefile tables *.c *.h *.sh test_pictures/*
 	
-ypfs: ypfs.o dir_handlers.o utils.o
-	gcc ypfs.o dir_handlers.o utils.o -o ypfs `pkg-config fuse --cflags --libs` -lsqlite3 -lexif
+opfs: opfs.o dir_handlers.o utils.o
+	gcc opfs.o dir_handlers.o utils.o -o opfs `pkg-config fuse --cflags --libs` -lsqlite3 -lexif
 
-ypfs.o: ypfs.c ypfs.h dir_handlers.h utils.h
-	gcc -Wall -c ypfs.c `pkg-config fuse --cflags --libs` -lsqlite3 -lexif
+opfs.o: opfs.c opfs.h dir_handlers.h utils.h
+	gcc -Wall -c opfs.c `pkg-config fuse --cflags --libs` -lsqlite3 -lexif
 
 dir_handlers.o: dir_handlers.c dir_handlers.h utils.h
 	gcc -Wall -c dir_handlers.c `pkg-config fuse --cflags --libs` -lsqlite3
