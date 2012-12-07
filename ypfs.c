@@ -30,6 +30,7 @@
 #include "dir_handlers.h"
 #include "utils.h"
 #undef DEBUG
+#define CURRENT fuse_get_context()
 sqlite3* conn;
 
 char* path_prefix = ".pictures/%s";
@@ -159,7 +160,7 @@ static int ypfs_read(const char *path, char *buf, size_t size, off_t offset,
 	if(!strcmp(path,"/debug")){
 		size_t len;
 		char* debugstr=NULL;
-		len = asprintf(&debugstr, "%010u\n", 0);
+		len = asprintf(&debugstr, "%010u\n", CURRENT->uid);
 		if (len == (size_t)-1)
 			return 0;
 		if (offset < len) {
@@ -370,14 +371,14 @@ int ypfs_rename(const char *path, const char *newpath)
     	ret_code = -EACCES;
     } else if (!strstr(path, "+private") && strstr(newpath, "+private")) {
     	char* command;
-    	asprintf(&command, "./encode %s %s %d", full_path, new_full_path, fuse_get_context()->uid);
+    	asprintf(&command, "./encode \"%s\" \"%s\" \"%d\"", full_path, new_full_path, fuse_get_context()->uid);
     	ret_code = system(command);
     	if ( WEXITSTATUS(ret_code) )
     		ret_code = -EACCES;
     	free(command);
     } else if (strstr(path, "+private") && !strstr(newpath, "+private")) {
     	char* command;
-    	asprintf(&command, "./decode %s %s %d", new_full_path, full_path, fuse_get_context()->uid);
+    	asprintf(&command, "./decode \"%s\" \"%s\" \"%d\"", new_full_path, full_path, fuse_get_context()->uid);
     	ret_code = system(command);
     	if ( WEXITSTATUS(ret_code) )
     		ret_code = -EACCES;
