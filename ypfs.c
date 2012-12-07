@@ -58,10 +58,6 @@ static int ypfs_getattr(const char *path, struct stat *stbuf)
 
 	full_path = build_path(path);
 
-	f = fopen("log.txt", "a");
-	fprintf(f, "path: [%s] real path: [%s]\n", path, full_path);
-	fclose(f);
-
 	memset(stbuf, 0, sizeof(struct stat));
 	if (strcmp(path, "/") == 0) {
 		stbuf->st_mode = S_IFDIR | 0777;
@@ -125,6 +121,11 @@ static int ypfs_open(const char *path, struct fuse_file_info *fi)
 	char* full_path;
 	FILE* f;
 	int ret_code;
+
+	if ( !hasPermission(fuse_get_context()->uid, path, conn) ) {
+    	return -EACCES;
+    }
+
 #ifdef DEBUG
 	if(!strcmp(path,"/debug")){
 		return 0;
@@ -356,6 +357,7 @@ int ypfs_truncate(const char *path, off_t newsize)
 
 int ypfs_rename(const char *path, const char *newpath)
 {
+	FILE* f;
     int ret_code = 0;
     char* full_path;
     char* new_full_path;
@@ -364,7 +366,9 @@ int ypfs_rename(const char *path, const char *newpath)
     full_path = build_path(path);
     new_full_path = build_path(newpath);
     
-    if (!strstr(path, "+private") && strstr(newpath, "+private")) {
+    if ( !hasPermission(fuse_get_context()->uid, path, conn) ) {
+    	ret_code = -EACCES;
+    } else if (!strstr(path, "+private") && strstr(newpath, "+private")) {
     	char* command;
     	asprintf(&command, "./encode %s %s %d", full_path, new_full_path, fuse_get_context()->uid);
     	ret_code = system(command);
@@ -400,20 +404,15 @@ int ypfs_rename(const char *path, const char *newpath)
 int ypfs_unlink(const char *path)
 {
     int ret_code = 0;
-    char* full_path;
+    char* full_path = NULL;
 	sqlite3_stmt *stmt;
 	
-	/*	Add check for uid and don't allow a delete from another user
-	sqlite3_prepare_v2(conn, "SELECT * FROM pictures WHERE filename=? AND uid=?", -1, &stmt, NULL);
-	sqlite3_bind_text(stmt, 1, path + last_index_of(path, '/'), -1, SQLITE_TRANSIENT);
-	sqlite3_bind_int(stmt, 2, fuse_get_context()->uid);
-	sqlite3_step(stmt);
-	sqlite3_finalize(stmt);
-	*/
-
-    full_path = build_path(path);
-
-    ret_code = unlink(full_path);
+    if ( !hasPermission(fuse_get_context()->uid, path, conn) ) {
+    	ret_code = -EACCES;
+    } else {
+	    full_path = build_path(path);
+	    ret_code = unlink(full_path);
+	}
 
 	if (!ret_code) {
 		sqlite3_prepare_v2(conn, "DELETE FROM pictures WHERE filename=?", -1, &stmt, NULL);
@@ -421,6 +420,8 @@ int ypfs_unlink(const char *path)
 		sqlite3_step(stmt);
 		sqlite3_finalize(stmt);
 	}
+
+	free(full_path);
 
     return ret_code;
 }
