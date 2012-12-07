@@ -1,0 +1,47 @@
+Jeremy Grebner and Nick Olive
+OPFS
+
+Running this make file with create a directory named /ofps
+and copy some executable files to it.  Make sure you have
+permissions to do this!
+
+Libraries used:
+libexif, libsqlite3, fuse
+
+
+To build:
+
+sudo make share
+
+To clean
+
+sudo make clean
+
+Running as sudo with the share target allows all users to access
+the mounted file system.  The filesystem will be mounted in the
+same directory as the opfs executable in the mnt/ directory.
+
+
+Usage:
+
+Copy pictures to any directory in the mounted file system.
+
+Browse the directories to view pictures in different sorting
+systems.
+
+Enter the Search/ folder, and then type 'cd term', where
+'term' is part of a filename that you wish to search for.
+All files with the substring 'term' will be listed in this directory.
+
+To encrypt a file you originally copied into the file system:
+mv original.jpg original+private.jpg
+
+To decrypt an encrypted file that you originally copied into the
+system:
+mv orignal+private.jpg original.jpg
+
+All other expected commands work, such as mv, cp, rm, as well as
+opening an editing in any image editor.
+
+See the design document for a more detailed explanation of features.
+
